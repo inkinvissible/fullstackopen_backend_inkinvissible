@@ -1,7 +1,18 @@
 const http = require('http');
-const express = require('express');
-const { log } = require('console');
-const app = express();
+const express = require('express')
+const morgan = require('morgan')
+const { log } = require('console')
+
+const app = express()
+
+// Agregar un token personalizado para registrar el cuerpo de las solicitudes POST
+morgan.token('body', (req) => {
+    return req.body ? JSON.stringify(req.body) : 'No body';
+});
+
+
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
+
 app.use(express.json())
 
 let phonebook = [
@@ -67,8 +78,7 @@ app.post('/api/persons', (request, response) => {
     }
 
     const existingPerson = phonebook.some(person => person.name === body.name)
-    console.log(existingPerson);
-    
+
     if (!existingPerson) {
         const person = {
             id: generateId(),
@@ -82,6 +92,11 @@ app.post('/api/persons', (request, response) => {
     }
 })
 
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({ error: 'unknown endpoint' })
+}
+
+app.use(unknownEndpoint)
 const PORT = 3001
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
