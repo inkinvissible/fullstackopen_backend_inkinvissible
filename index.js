@@ -2,18 +2,17 @@ const http = require('http');
 const express = require('express')
 const morgan = require('morgan')
 const { log } = require('console')
-
+const cors = require('cors')
 const app = express()
 
-// Agregar un token personalizado para registrar el cuerpo de las solicitudes POST
 morgan.token('body', (req) => {
     return req.body ? JSON.stringify(req.body) : 'No body';
 });
 
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
-
 app.use(express.json())
+app.use(cors())
 
 let phonebook = [
     {
@@ -97,7 +96,7 @@ const unknownEndpoint = (request, response) => {
 }
 
 app.use(unknownEndpoint)
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
+  console.log(`Server running on port ${PORT}`)
 })
