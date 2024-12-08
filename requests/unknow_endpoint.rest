@@ -1,2 +1,2 @@
-GET http://localhost:3001/hola
+GET https://fullstackopen-backend-inkinvissible.onrender.com/hola
 Content-Type: application/json
