@@ -1,99 +1,149 @@
+require('dotenv').config()
 const http = require('http');
 const express = require('express')
 const morgan = require('morgan')
 const { log } = require('console')
 const cors = require('cors')
+const mongoose = require('mongoose')
+const Person = require('./models/person')
+
 const app = express()
+
 
 morgan.token('body', (req) => {
     return req.body ? JSON.stringify(req.body) : 'No body';
 });
 
-
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
-app.use(express.json())
 app.use(cors())
 app.use(express.static('dist'))
+app.use(express.json())
+if (process.env.NODE_ENV === 'development') {
+    app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
+}
 
-let phonebook = [
-    {
-        "id": 1,
-        "name": "Arto Hellas",
-        "number": "040-123456"
-    },
-    {
-        "id": 2,
-        "name": "Ada Lovelace",
-        "number": "39-44-5323523"
-    },
-    {
-        "id": 3,
-        "name": "Dan Abramov",
-        "number": "12-43-234345"
-    },
-    {
-        "id": 4,
-        "name": "Mary Poppendieck",
-        "number": "39-23-6423122"
-    }
-]
+
+
+
+
 
 app.get('/api/persons', (request, response) => {
-    response.json(phonebook)
+    Person.find({}).then(persons => {
+        response.json(persons)
+    })
 })
 
 app.get('/info', (request, response) => {
-    const currentTime = new Date();
-    const lengthPhoneBook = phonebook.length
-    response.send(`
-        <h1>Phonebook has info for ${lengthPhoneBook} people</h1>
-        <h3> Request done at: ${currentTime}</h3>
-        `)
+    const time = new Date()
+    Person.find({}).then(persons => {
+        const personsLength = persons.length
+        response.send(`<h3>Phonebook has info for ${personsLength} people</h3>
+                    <h3>${time}</h3>
+            `)
+    
+    })
+   
+    
 })
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = phonebook.find(person => person.id === id)
-    person ? response.json(person) : response.status(404).end()
+    Person.findById(request.params.id).then(person => {
+        if (person) {
+            response.json(person)
+        } else {
+            response.status(404).end()
+        }
+    })
+        .catch(error => {
+            console.log(error)
+            response.status(400).send({ error: 'malformatted id' })
+        })
 })
 
 app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    phonebook = phonebook.filter(person => person.id !== id)
+    if (!mongoose.Types.ObjectId.isValid(request.params.id)) {
+        return response.status(400).json({ error: 'Invalid ID format' })
+    }
 
-    response.status(204).end()
+    Person.findByIdAndDelete(request.params.id)
+        .then(result => {
+            if (result) {
+                response.status(204).end()
+            } else {
+                response.status(404).json({ error: 'Person not found' })
+            }
+        })
+        .catch(error => next(error))
 })
 
-const generateId = () => maxId = Math.floor(Math.random() * 99999999999)
 
 app.post('/api/persons', (request, response) => {
-    const body = request.body
+    const { name, number } = request.body
 
-    if (!body.name || !body.number) {
-        return response.status(400).json({ error: "Content missing... " })
+    if (!name || !number) {
+        return response.status(400).json({ error: "Number or name are missing " })
     }
 
-    const existingPerson = phonebook.some(person => person.name === body.name)
+    Person.findOne({ name })
+        .then(existingPerson => {
+            if (existingPerson) {
+                return response.status(409).json({
+                    error: "Name must be unique"
+                })
+            }
 
-    if (!existingPerson) {
-        const person = {
-            id: generateId(),
-            name: body.name,
-            number: body.number
-        }
-        phonebook = phonebook.concat(person)
-        response.json(person)
-    } else {
-        response.status(409).json({ error: "name must be unique" })
+            const person = new Person({ name, number })
+            return person.save()
+        })
+        .then(savedPerson => {
+            response.status(201).json(savedPerson)
+        })
+        .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+    const { number } = request.body
+
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(request.params.id)) {
+        return response.status(400).json({ error: 'Invalid ID format' })
     }
+
+    if (!number) {
+        return response.status(400).json({ error: 'Phone number is missing' })
+    }
+
+    Person.findByIdAndUpdate(
+        request.params.id,
+        { number },
+        { new: true }
+    )
+        .then(updatedPerson => {
+            if (updatedPerson) {
+                response.json(updatedPerson)
+            } else {
+                response.status(404).json({ error: 'Person not found' })
+            }
+        })
+        .catch(error => next(error))
 })
 
 const unknownEndpoint = (request, response) => {
     response.status(404).send({ error: 'unknown endpoint' })
 }
-
 app.use(unknownEndpoint)
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    if (error.name === 'CastError') {
+        return response.status(400).send({ error: 'malformatted id' })
+    }
+
+    next(error)
+}
+app.use(errorHandler) // Se carga el middleware
+
+
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+    console.log(`Server running on port ${PORT}`)
 })
