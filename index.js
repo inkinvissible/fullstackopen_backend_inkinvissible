@@ -1,24 +1,21 @@
 require('dotenv').config()
-const http = require('http');
 const express = require('express')
 const morgan = require('morgan')
-const { log } = require('console')
 const cors = require('cors')
 const mongoose = require('mongoose')
 const Person = require('./models/person')
-
 const app = express()
 
 
 morgan.token('body', (req) => {
-    return req.body ? JSON.stringify(req.body) : 'No body';
-});
+    return req.body ? JSON.stringify(req.body) : 'No body'
+})
 
 app.use(cors())
 app.use(express.static('dist'))
 app.use(express.json())
 if (process.env.NODE_ENV === 'development') {
-    app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'));
+    app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 }
 
 
@@ -39,10 +36,7 @@ app.get('/info', (request, response) => {
         response.send(`<h3>Phonebook has info for ${personsLength} people</h3>
                     <h3>${time}</h3>
             `)
-    
     })
-   
-    
 })
 
 app.get('/api/persons/:id', (request, response) => {
@@ -80,14 +74,14 @@ app.post('/api/persons', (request, response, next) => {
     const { name, number } = request.body
 
     if (!name || !number) {
-        return response.status(400).json({ error: "Number or name are missing " })
+        return response.status(400).json({ error: 'Number or name are missing' })
     }
 
     Person.findOne({ name })
         .then(existingPerson => {
             if (existingPerson) {
                 return response.status(409).json({
-                    error: "Name must be unique"
+                    error: 'Name must be unique'
                 })
             }
 
